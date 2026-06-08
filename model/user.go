@@ -30,6 +30,7 @@ type User struct {
 	Role             int            `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
+	Phone            string         `json:"phone" gorm:"type:varchar(32);column:phone;uniqueIndex" validate:"max=32"`
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
 	DiscordId        string         `json:"discord_id" gorm:"column:discord_id;index"`
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
@@ -183,6 +184,35 @@ func CheckUserExistOrDeleted(username string, email string) (bool, error) {
 	}
 	// exist, return true, nil
 	return true, nil
+}
+
+func IsPhoneAlreadyTaken(phone string) bool {
+	if phone == "" {
+		return false
+	}
+	return DB.Unscoped().Where("phone = ?", phone).Find(&User{}).RowsAffected == 1
+}
+
+func GetUserByPhone(phone string) (*User, error) {
+	if phone == "" {
+		return nil, errors.New("手机号为空！")
+	}
+	var user User
+	err := DB.Where("phone = ?", phone).First(&user).Error
+	return &user, err
+}
+
+func GenerateUniqueUsername(prefix string) string {
+	if prefix == "" {
+		prefix = "user"
+	}
+	for i := 0; i < 10; i++ {
+		username := prefix + "_" + common.GetRandomString(8)
+		if DB.Unscoped().Where("username = ?", username).Find(&User{}).RowsAffected == 0 {
+			return username
+		}
+	}
+	return prefix + "_" + strconv.FormatInt(common.GetTimestamp(), 10) + common.GetRandomString(4)
 }
 
 func GetMaxUserId() int {
